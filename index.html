@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Menorca Cash_v 2.3.0 | medbasha</title>
+    <title>Menorca Cash_v 2.4.0 | medbasha</title>
     
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1a1a1a">
@@ -19,7 +19,7 @@
             --yellow: #f1c40f;
         }
         * { -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; box-sizing: border-box; }
-        input { -webkit-user-select: auto; user-select: auto; }
+        input, select { -webkit-user-select: auto; user-select: auto; }
         body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 12px; overflow-x: hidden; }
         
         .dashboard { background: var(--card); padding: 20px; border-radius: 15px; text-align: center; margin-bottom: 15px; border-bottom: 4px solid var(--green); cursor: pointer; transition: 0.3s ease; position: relative; }
@@ -91,7 +91,7 @@
 
     <div id="pantalla-principal">
         <div class="dashboard" id="panel-control" onclick="abrirHistorial()">
-            <div class="app-name">Menorca Cash_v 2.3.0</div>
+            <div class="app-name">Menorca Cash_v 2.4.0</div>
             <div class="balance" id="total">0,00 €</div>
             <div class="sub-label" id="estado-texto">DISPONIBLE VIRTUAL</div>
         </div>
@@ -149,7 +149,7 @@
 
         <div id="contenedor-aplazados"></div>
         
-        <!-- TARJETA FORMULARIO APLAZADOS CON TABLETAS DE COLORES -->
+        <!-- TARJETA FORMULARIO APLAZADOS -->
         <div class="card-formulario">
             <div class="form-header">✨ NUEVA COMPRA APLAZADA</div>
             
@@ -163,19 +163,35 @@
                 <input type="text" id="apl-producto" class="config-input" placeholder="Ej: TV 55&quot;">
             </div>
 
-            <div class="form-group" style="--group-color: var(--green);">
-                <label style="font-size: 0.7em; color: var(--green); font-weight: bold;">IMPORTE TOTAL (€)</label>
-                <input type="number" id="apl-total" class="config-input" placeholder="Ej: 600" oninput="calcularCuotaAuto()">
+            <!-- FILA DOBLE: IMPORTE Y MESES APLAZADOS -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div class="form-group" style="--group-color: var(--green);">
+                    <label style="font-size: 0.7em; color: var(--green); font-weight: bold;">IMPORTE TOTAL (€)</label>
+                    <input type="number" id="apl-total" class="config-input" placeholder="Ej: 600" oninput="calcularCuotaYFechas()">
+                </div>
+                <div class="form-group" style="--group-color: #e74c3c;">
+                    <label style="font-size: 0.7em; color: #e74c3c; font-weight: bold;">MESES APLAZADOS</label>
+                    <select id="apl-meses-num" class="config-input" onchange="calcularCuotaYFechas()">
+                        <option value="3">3 Meses</option>
+                        <option value="6" selected>6 Meses</option>
+                        <option value="9">9 Meses</option>
+                        <option value="12">12 Meses</option>
+                        <option value="18">18 Meses</option>
+                        <option value="24">24 Meses</option>
+                        <option value="36">36 Meses</option>
+                    </select>
+                </div>
             </div>
 
+            <!-- FILA DOBLE: FECHAS INICIO Y FIN -->
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                 <div class="form-group" style="--group-color: var(--purple);">
                     <label style="font-size: 0.7em; color: var(--purple); font-weight: bold;">FECHA INICIO</label>
-                    <input type="date" id="apl-inicio" class="config-input" onchange="calcularCuotaAuto()">
+                    <input type="date" id="apl-inicio" class="config-input" onchange="calcularCuotaYFechas()">
                 </div>
                 <div class="form-group" style="--group-color: var(--yellow);">
                     <label style="font-size: 0.7em; color: var(--yellow); font-weight: bold;">FECHA FIN</label>
-                    <input type="date" id="apl-fin" class="config-input" onchange="calcularCuotaAuto()">
+                    <input type="date" id="apl-fin" class="config-input" onchange="recalcularDesdeFechas()">
                 </div>
             </div>
 
@@ -216,8 +232,7 @@
     <script>
         if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js'); }
 
-        // IndexedDB Core Setup
-        const dbName = "MenorcaCashDB_v230";
+        const dbName = "MenorcaCashDB_v240";
         let db = null;
 
         function initDB() {
@@ -268,6 +283,50 @@
 
         function vibrate() { if (navigator.vibrate) navigator.vibrate(40); }
 
+        function inicializarFechaHoy() {
+            const inicioInput = document.getElementById('apl-inicio');
+            if (!inicioInput.value) {
+                const hoy = new Date();
+                inicioInput.value = hoy.toISOString().split('T')[0];
+            }
+        }
+
+        function calcularCuotaYFechas() {
+            inicializarFechaHoy();
+            const total = parseFloat(document.getElementById('apl-total').value);
+            const mesesNum = parseInt(document.getElementById('apl-meses-num').value) || 6;
+            const inicioStr = document.getElementById('apl-inicio').value;
+
+            if (inicioStr) {
+                const inicio = new Date(inicioStr);
+                const fin = new Date(inicio);
+                fin.setMonth(fin.getMonth() + mesesNum);
+                document.getElementById('apl-fin').value = fin.toISOString().split('T')[0];
+            }
+
+            if (total > 0 && mesesNum > 0) {
+                const cuotaCalc = total / mesesNum;
+                document.getElementById('apl-cuota').value = cuotaCalc.toFixed(2);
+            }
+        }
+
+        function recalcularDesdeFechas() {
+            const total = parseFloat(document.getElementById('apl-total').value);
+            const inicioStr = document.getElementById('apl-inicio').value;
+            const finStr = document.getElementById('apl-fin').value;
+
+            if (total > 0 && inicioStr && finStr) {
+                const inicio = new Date(inicioStr);
+                const fin = new Date(finStr);
+                
+                let totalMeses = (fin.getFullYear() - inicio.getFullYear()) * 12 + (fin.getMonth() - inicio.getMonth()) + 1;
+                if (totalMeses < 1) totalMeses = 1;
+                
+                const cuotaCalc = total / totalMeses;
+                document.getElementById('apl-cuota').value = cuotaCalc.toFixed(2);
+            }
+        }
+
         async function verificarCobrosAutomaticos() {
             const hoy = new Date();
             let cambios = false;
@@ -305,23 +364,6 @@
                 await saveDB('balance_mb', balance);
                 await saveDB('historial_mb', historial);
                 await saveDB('aplazados_mb', aplazados);
-            }
-        }
-
-        function calcularCuotaAuto() {
-            const total = parseFloat(document.getElementById('apl-total').value);
-            const inicioStr = document.getElementById('apl-inicio').value;
-            const finStr = document.getElementById('apl-fin').value;
-
-            if (total > 0 && inicioStr && finStr) {
-                const inicio = new Date(inicioStr);
-                const fin = new Date(finStr);
-                
-                let totalMeses = (fin.getFullYear() - inicio.getFullYear()) * 12 + (fin.getMonth() - inicio.getMonth()) + 1;
-                if (totalMeses < 1) totalMeses = 1;
-                
-                const cuotaCalc = total / totalMeses;
-                document.getElementById('apl-cuota').value = cuotaCalc.toFixed(2);
             }
         }
 
@@ -526,7 +568,11 @@
         }
 
         function abrirHistorial() { vibrate(); document.getElementById('pantalla-historial').classList.add('active'); }
-        function abrirAplazados() { vibrate(); document.getElementById('pantalla-aplazados').classList.add('active'); }
+        function abrirAplazados() { 
+            vibrate(); 
+            inicializarFechaHoy();
+            document.getElementById('pantalla-aplazados').classList.add('active'); 
+        }
         async function abrirConfig() { 
             vibrate();
             document.getElementById('pantalla-config').classList.add('active'); 
@@ -539,7 +585,6 @@
             document.getElementById('pantalla-config').classList.remove('active'); 
         }
 
-        // App Boot with IndexedDB
         async function boot() {
             try {
                 await initDB();
